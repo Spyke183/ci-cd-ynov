@@ -1,8 +1,8 @@
 {
   "source": {
-    "include": ["src"],
+    "include": ["src", "README.md"],
     "includePattern": "\\.js$",
-    "excludePattern": "(node_modules|build|public|docs)"
+    "excludePattern": "(node_modules|build|public|docs|\\.test\\.js$|src[\\\\/]index\\.js$|src[\\\\/]reportWebVitals\\.js$|src[\\\\/]setupTests\\.js$)"
   },
   "opts": {
     "recurse": true
