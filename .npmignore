@@ -1,0 +1,36 @@
+# Dependencies
+node_modules
+
+# Build outputs (sauf dist qui sera publié)
+build
+coverage
+
+# Public assets (servent uniquement à l'app web, pas au package npm)
+public
+
+# Code source (on publie uniquement le code compilé dans dist/)
+src
+
+# Tests
+*.test.js
+
+# CI / Workflows / Git
+.github
+.git
+.gitignore
+
+# Configs locales
+.env*
+.vscode
+.idea
+.DS_Store
+
+# Configs JSDoc / Babel (servent au build, pas au runtime)
+jsdoc.config.json
+babel.config.js
+.babelrc
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
