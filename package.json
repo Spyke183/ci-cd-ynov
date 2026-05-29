@@ -1,8 +1,10 @@
 {
   "name": "@spyke183/ci-cd-ynov",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "main": "dist/index.js",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "homepage": "https://Spyke183.github.io/ci-cd-ynov",
   "dependencies": {
     "@testing-library/dom": "^10.4.1",
