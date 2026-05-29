@@ -2,8 +2,8 @@ import { render, screen, fireEvent, act } from '@testing-library/react';
 import App from './App';
 
 /**
- * Helper : retourne une date YYYY-MM-DD pour un âge donné.
- * @param {number} years - Nombre d'années dans le passé.
+ * Helper : retourne une date YYYY-MM-DD pour un age donne.
+ * @param {number} years - Nombre d'annees dans le passe.
  * @return {string} Date au format ISO court.
  */
 const dateForAge = (years) => {
@@ -13,8 +13,8 @@ const dateForAge = (years) => {
 };
 
 /**
- * Helper : remplit le formulaire avec des valeurs valides par défaut.
- * @param {object} overrides - Valeurs à remplacer.
+ * Helper : remplit le formulaire avec des valeurs valides par defaut.
+ * @param {object} overrides - Valeurs a remplacer.
  */
 const fillForm = (overrides = {}) => {
   const values = {
@@ -54,19 +54,31 @@ describe('Rendu initial', () => {
     expect(screen.getByLabelText('Code postal')).toBeInTheDocument();
   });
 
-  it('le bouton est désactivé au chargement', () => {
+  it('le bouton est désactivé au chargement (tous champs vides)', () => {
     render(<App />);
     expect(screen.getByTestId('submit-btn')).toBeDisabled();
   });
 
-  it("n'affiche pas le toaster au chargement", () => {
+  it("n'affiche pas le toaster de succès au chargement", () => {
     render(<App />);
     expect(screen.queryByTestId('toast')).not.toBeInTheDocument();
+  });
+
+  it("n'affiche pas le toaster d'erreur au chargement", () => {
+    render(<App />);
+    expect(screen.queryByTestId('error-toast')).not.toBeInTheDocument();
   });
 
   it('affiche un titre "Liste des inscrits"', () => {
     render(<App />);
     expect(screen.getByText('Liste des inscrits')).toBeInTheDocument();
+  });
+
+  it('affiche un lien vers la documentation', () => {
+    render(<App />);
+    const link = screen.getByTestId('docs-link');
+    expect(link).toBeInTheDocument();
+    expect(link.getAttribute('href')).toBe('docs/index.html');
   });
 
   it('charge les inscrits existants depuis localStorage', () => {
@@ -78,7 +90,7 @@ describe('Rendu initial', () => {
   });
 });
 
-describe('Validation des champs (erreurs)', () => {
+describe('Validation des champs (erreurs en temps réel)', () => {
   it('affiche une erreur si le nom contient des chiffres', () => {
     render(<App />);
     fireEvent.change(screen.getByLabelText('Nom'), { target: { name: 'lastName', value: '123' } });
@@ -137,10 +149,10 @@ describe('Validation des champs (erreurs)', () => {
 });
 
 describe('Activation du bouton de soumission', () => {
-  it('reste désactivé si un seul champ manque', () => {
+  it("s'active dès qu'un champ est rempli, même si invalide", () => {
     render(<App />);
-    fillForm({ zipCode: '' });
-    expect(screen.getByTestId('submit-btn')).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('Nom'), { target: { name: 'lastName', value: '123' } });
+    expect(screen.getByTestId('submit-btn')).toBeEnabled();
   });
 
   it("s'active quand tous les champs sont valides", () => {
@@ -149,15 +161,22 @@ describe('Activation du bouton de soumission', () => {
     expect(screen.getByTestId('submit-btn')).toBeEnabled();
   });
 
-  it("reste désactivé si l'âge est < 18 ans", () => {
+  it("s'active même si l'âge est < 18 ans (déclenchera le toaster d'erreur)", () => {
     render(<App />);
     fillForm({ birthDate: dateForAge(15) });
+    expect(screen.getByTestId('submit-btn')).toBeEnabled();
+  });
+
+  it("se redésactive après une inscription réussie (champs vidés)", () => {
+    render(<App />);
+    fillForm();
+    fireEvent.click(screen.getByTestId('submit-btn'));
     expect(screen.getByTestId('submit-btn')).toBeDisabled();
   });
 });
 
-describe('Soumission du formulaire', () => {
-  it('affiche le toaster après une inscription réussie', () => {
+describe('Soumission valide (toaster de succès)', () => {
+  it('affiche le toaster de succès après une inscription réussie', () => {
     render(<App />);
     fillForm();
     fireEvent.click(screen.getByTestId('submit-btn'));
@@ -192,7 +211,7 @@ describe('Soumission du formulaire', () => {
     expect(stored[0].email).toBe('jean@test.com');
   });
 
-  it('le toaster disparaît après 3 secondes', () => {
+  it('le toaster de succès disparaît après 3 secondes', () => {
     jest.useFakeTimers();
     render(<App />);
     fillForm();
@@ -205,10 +224,65 @@ describe('Soumission du formulaire', () => {
     jest.useRealTimers();
   });
 
-  it("le bouton se redésactive après l'inscription (champs vidés)", () => {
+  it("n'affiche PAS le toaster d'erreur en cas de succès", () => {
     render(<App />);
     fillForm();
     fireEvent.click(screen.getByTestId('submit-btn'));
-    expect(screen.getByTestId('submit-btn')).toBeDisabled();
+    expect(screen.queryByTestId('error-toast')).not.toBeInTheDocument();
+  });
+});
+
+describe('Soumission invalide (toaster d\'erreur)', () => {
+  it("affiche le toaster d'erreur si soumission avec un email invalide", () => {
+    render(<App />);
+    fillForm({ email: 'pasunemail' });
+    fireEvent.click(screen.getByTestId('submit-btn'));
+    expect(screen.getByTestId('error-toast')).toBeInTheDocument();
+    expect(screen.getByTestId('error-toast')).toHaveTextContent('corriger');
+  });
+
+  it("affiche le toaster d'erreur si soumission avec un âge < 18 ans", () => {
+    render(<App />);
+    fillForm({ birthDate: dateForAge(15) });
+    fireEvent.click(screen.getByTestId('submit-btn'));
+    expect(screen.getByTestId('error-toast')).toBeInTheDocument();
+  });
+
+  it("marque tous les champs invalides en erreur si soumission d'un formulaire partiellement rempli", () => {
+    render(<App />);
+    fireEvent.change(screen.getByLabelText('Nom'), { target: { name: 'lastName', value: 'Dupont' } });
+    fireEvent.click(screen.getByTestId('submit-btn'));
+    expect(screen.getByTestId('error-firstName')).toBeInTheDocument();
+    expect(screen.getByTestId('error-email')).toBeInTheDocument();
+    expect(screen.getByTestId('error-birthDate')).toBeInTheDocument();
+    expect(screen.getByTestId('error-city')).toBeInTheDocument();
+    expect(screen.getByTestId('error-zipCode')).toBeInTheDocument();
+  });
+
+  it("le toaster d'erreur disparaît après 3 secondes", () => {
+    jest.useFakeTimers();
+    render(<App />);
+    fillForm({ email: 'pasunemail' });
+    fireEvent.click(screen.getByTestId('submit-btn'));
+    expect(screen.getByTestId('error-toast')).toBeInTheDocument();
+    act(() => {
+      jest.advanceTimersByTime(3000);
+    });
+    expect(screen.queryByTestId('error-toast')).not.toBeInTheDocument();
+    jest.useRealTimers();
+  });
+
+  it("ne sauvegarde PAS l'utilisateur dans localStorage en cas d'erreur", () => {
+    render(<App />);
+    fillForm({ email: 'pasunemail' });
+    fireEvent.click(screen.getByTestId('submit-btn'));
+    expect(localStorage.getItem('users')).toBeNull();
+  });
+
+  it("n'affiche PAS le toaster de succès en cas d'erreur", () => {
+    render(<App />);
+    fillForm({ email: 'pasunemail' });
+    fireEvent.click(screen.getByTestId('submit-btn'));
+    expect(screen.queryByTestId('toast')).not.toBeInTheDocument();
   });
 });

@@ -12,7 +12,7 @@ import {
 
 /**
  * Composant principal : formulaire d'inscription avec validation,
- * sauvegarde localStorage, toaster de succès et liste des inscrits.
+ * sauvegarde localStorage, toasters de succes / erreur et liste des inscrits.
  * @return {JSX.Element} Le composant App.
  */
 function App() {
@@ -26,11 +26,12 @@ function App() {
   });
   const [errors, setErrors] = useState({});
   const [toast, setToast] = useState(false);
+  const [errorToast, setErrorToast] = useState(false);
   const [users, setUsers] = useState(getUsers());
 
   /**
-   * Gère le changement d'un champ et valide en temps réel.
-   * @param {Event} e - Évènement de changement de l'input.
+   * Gere le changement d'un champ et valide en temps reel.
+   * @param {Event} e - Evenement de changement de l'input.
    */
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -43,8 +44,8 @@ function App() {
   };
 
   /**
-   * Vérifie si tous les champs du formulaire sont valides.
-   * @return {boolean} True si le formulaire est entièrement valide.
+   * Verifie si tous les champs du formulaire sont valides.
+   * @return {boolean} True si le formulaire est entierement valide.
    */
   const isFormValid = () =>
     isValidName(form.lastName) &&
@@ -55,10 +56,35 @@ function App() {
     isValidZipCode(form.zipCode);
 
   /**
-   * Sauvegarde l'utilisateur, met à jour la liste, affiche le toaster
-   * et réinitialise le formulaire.
+   * Verifie si le formulaire est entierement vide (aucun champ rempli).
+   * @return {boolean} True si tous les champs sont vides.
+   */
+  const isFormEmpty = () =>
+    form.lastName === '' &&
+    form.firstName === '' &&
+    form.email === '' &&
+    form.birthDate === '' &&
+    form.city === '' &&
+    form.zipCode === '';
+
+  /**
+   * Soumet le formulaire : sauvegarde si valide (toaster succes),
+   * sinon affiche le toaster d'erreur et marque tous les champs invalides.
    */
   const handleSubmit = () => {
+    if (!isFormValid()) {
+      setErrors({
+        lastName: !isValidName(form.lastName),
+        firstName: !isValidName(form.firstName),
+        email: !isValidEmail(form.email),
+        birthDate: !isValidBirthDate(form.birthDate),
+        city: !isValidCity(form.city),
+        zipCode: !isValidZipCode(form.zipCode)
+      });
+      setErrorToast(true);
+      setTimeout(() => setErrorToast(false), 3000);
+      return;
+    }
     const updatedUsers = saveUser(form);
     setUsers(updatedUsers);
     setForm({ lastName: '', firstName: '', email: '', birthDate: '', city: '', zipCode: '' });
@@ -71,9 +97,21 @@ function App() {
     <div className="app">
       <h1>Formulaire d'inscription</h1>
 
+      <nav style={{ marginBottom: 20 }}>
+        <a href="docs/index.html" data-testid="docs-link">
+          Voir la documentation
+        </a>
+      </nav>
+
       {toast && (
         <div data-testid="toast" role="status" style={{ color: 'green' }}>
           Inscription réussie !
+        </div>
+      )}
+
+      {errorToast && (
+        <div data-testid="error-toast" role="alert" style={{ color: 'red' }}>
+          Veuillez corriger les champs en erreur.
         </div>
       )}
 
@@ -175,7 +213,7 @@ function App() {
 
       <button
         onClick={handleSubmit}
-        disabled={!isFormValid()}
+        disabled={isFormEmpty()}
         data-testid="submit-btn"
       >
         S'inscrire
