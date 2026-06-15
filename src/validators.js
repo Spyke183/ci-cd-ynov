@@ -23,21 +23,26 @@ export function isValidEmail(email) {
 
 /**
  * Vérifie si la date de naissance correspond à une personne majeure (>= 18 ans).
+ * Rejette les dates aberrantes : année hors de [1900, année courante]
+ * (ex : 0001-01-01) et tout âge supérieur à 120 ans.
  * @param {string} date - Date de naissance au format YYYY-MM-DD.
- * @return {boolean} True si majeur, false sinon.
+ * @return {boolean} True si majeur et date plausible, false sinon.
  */
 export function isValidBirthDate(date) {
     if (!date || typeof date !== 'string') return false;
     const birthDate = new Date(date);
     if (isNaN(birthDate.getTime())) return false;
     const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
+    // Garde-fou : on rejette les années aberrantes (ex : 0001).
+    const birthYear = birthDate.getFullYear();
+    if (birthYear < 1900 || birthYear > today.getFullYear()) return false;
+    let age = today.getFullYear() - birthYear;
     const monthDiff = today.getMonth() - birthDate.getMonth();
     const dayDiff = today.getDate() - birthDate.getDate();
     if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
         age -= 1;
     }
-    return age >= 18;
+    return age >= 18 && age <= 120;
 }
 
 /**

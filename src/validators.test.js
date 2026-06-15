@@ -66,6 +66,18 @@ describe('isValidBirthDate', () => {
         date.setDate(date.getDate() + 1);
         expect(isValidBirthDate(date.toISOString().split('T')[0])).toBe(false);
     });
+    it('refuse une date aberrante (01/01/0001)', () => expect(isValidBirthDate('0001-01-01')).toBe(false));
+    it('refuse une année avant 1900', () => expect(isValidBirthDate('1899-12-31')).toBe(false));
+    it('refuse un âge supérieur à 120 ans', () => {
+        const date = new Date();
+        date.setFullYear(date.getFullYear() - 130);
+        expect(isValidBirthDate(date.toISOString().split('T')[0])).toBe(false);
+    });
+    it('refuse une date dans le futur', () => {
+        const date = new Date();
+        date.setFullYear(date.getFullYear() + 1);
+        expect(isValidBirthDate(date.toISOString().split('T')[0])).toBe(false);
+    });
     it('refuse une date invalide (string non parsable)', () => expect(isValidBirthDate('abc')).toBe(false));
     it('refuse une chaîne vide', () => expect(isValidBirthDate('')).toBe(false));
     it('refuse null', () => expect(isValidBirthDate(null)).toBe(false));
