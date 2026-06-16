@@ -36,6 +36,9 @@ const fillForm = (overrides = {}) => {
 
 beforeEach(() => {
   localStorage.clear();
+  // Mock fetch par defaut : promesse jamais resolue -> pas de maj d'etat
+  // dans les tests synchrones (evite les avertissements act()).
+  global.fetch = jest.fn(() => new Promise(() => {}));
 });
 
 describe('Rendu initial', () => {
@@ -284,5 +287,25 @@ describe('Soumission invalide (toaster d\'erreur)', () => {
     fillForm({ email: 'pasunemail' });
     fireEvent.click(screen.getByTestId('submit-btn'));
     expect(screen.queryByTestId('toast')).not.toBeInTheDocument();
+  });
+});
+
+describe("Nombre d'utilisateurs en base (API)", () => {
+  it("affiche le nombre d'utilisateurs renvoyé par l'API", async () => {
+    global.fetch = jest.fn(() =>
+      Promise.resolve({ json: () => Promise.resolve({ count: 5 }) })
+    );
+    await act(async () => {
+      render(<App />);
+    });
+    expect(await screen.findByTestId('db-count')).toHaveTextContent('5');
+  });
+
+  it("n'affiche rien si l'appel API échoue", async () => {
+    global.fetch = jest.fn(() => Promise.reject(new Error('network')));
+    await act(async () => {
+      render(<App />);
+    });
+    expect(screen.queryByTestId('db-count')).not.toBeInTheDocument();
   });
 });

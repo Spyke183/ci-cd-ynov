@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import './App.css';
 import {
   validateField,
@@ -29,6 +29,15 @@ function App() {
   const [toast, setToast] = useState(false);
   const [errorToast, setErrorToast] = useState(false);
   const [users, setUsers] = useState(getUsers());
+  const [dbCount, setDbCount] = useState(null);
+
+  // Recupere le nombre d'utilisateurs en base via l'API (Docker / FastAPI).
+  useEffect(() => {
+    fetch('http://localhost:8000/users')
+      .then((res) => res.json())
+      .then((data) => setDbCount(data.count))
+      .catch(() => {});
+  }, []);
 
   /**
    * Gere le changement d'un champ et valide en temps reel.
@@ -221,6 +230,9 @@ function App() {
       </button>
 
       <h2>Liste des inscrits</h2>
+      {dbCount !== null && (
+        <p data-testid="db-count">Utilisateurs en base de données : {dbCount}</p>
+      )}
       <ul>
         {users.map((u, i) => (
           <li key={i} data-testid="user-item">

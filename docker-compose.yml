@@ -1,0 +1,33 @@
+services:
+  db:
+    image: migration_mysql
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - ./sqlfiles:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "mysql --user=root --password=$$MYSQL_ROOT_PASSWORD --execute 'SHOW DATABASES;' || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - 8080:8080
+
+  api:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+    ports:
+      - 8000:8000
