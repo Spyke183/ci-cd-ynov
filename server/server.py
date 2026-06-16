@@ -15,12 +15,12 @@ app.add_middleware(
 
 
 def get_connection():
-    """Ouvre une connexion vers la base MySQL du service 'db'."""
+    """Ouvre une connexion vers la base MySQL (config via variables d'environnement)."""
     return mysql.connector.connect(
-        host="db",
-        user="root",
-        password=os.environ.get("MYSQL_ROOT_PASSWORD", "root2002"),
-        database="ynov_ci",
+        host=os.environ.get("MYSQL_HOST", "db"),
+        user=os.environ.get("MYSQL_USER", "root"),
+        password=os.environ.get("MYSQL_ROOT_PASSWORD"),
+        database=os.environ.get("MYSQL_DATABASE", "ynov_ci"),
     )
 
 
