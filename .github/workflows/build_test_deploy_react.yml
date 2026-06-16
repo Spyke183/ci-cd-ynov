@@ -69,3 +69,57 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  test-docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create .env file
+        run: echo "MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}" > .env
+      - name: Build and start the stack
+        run: docker compose -p ci-cd-ynov up -d --build
+      - name: List containers
+        run: docker ps
+      - name: Wait for all services to be healthy
+        run: |
+          containers="ci-cd-ynov-db-1 ci-cd-ynov-adminer-1 ci-cd-ynov-api-1 ci-cd-ynov-react-1"
+          for attempt in $(seq 1 40); do
+            all_healthy=true
+            for c in $containers; do
+              status=$(docker inspect --format "{{json .State.Health.Status}}" "$c" 2>/dev/null || echo '"missing"')
+              healthy=$(echo "$status" | jq '. == "healthy"')
+              echo "$c -> $status"
+              if [ "$healthy" != "true" ]; then all_healthy=false; fi
+            done
+            if [ "$all_healthy" = "true" ]; then
+              echo "All 4 services are healthy!"
+              exit 0
+            fi
+            echo "Attempt $attempt: waiting 10s..."
+            sleep 10
+          done
+          echo "Timeout: some services never became healthy"
+          docker compose -p ci-cd-ynov logs
+          exit 1
+      - name: Stop the stack
+        if: always()
+        run: docker compose -p ci-cd-ynov down
+
+  build-docker:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Build and push frontend image
+        run: |
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/ci-cd-ynov-frontend -f DockerfileReact .
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/ci-cd-ynov-frontend
+      - name: Build and push backend image
+        run: |
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/ci-cd-ynov-backend -f server/Dockerfile ./server
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/ci-cd-ynov-backend
