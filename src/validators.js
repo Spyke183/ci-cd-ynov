@@ -88,23 +88,3 @@ export function validateField(fieldName, value) {
             return false;
     }
 }
-
-/**
- * Sauvegarde un utilisateur dans le localStorage.
- * @param {object} user - L'utilisateur à sauvegarder.
- * @return {Array} La liste complète des utilisateurs après ajout.
- */
-export function saveUser(user) {
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    users.push(user);
-    localStorage.setItem('users', JSON.stringify(users));
-    return users;
-}
-
-/**
- * Récupère la liste des utilisateurs depuis le localStorage.
- * @return {Array} La liste des utilisateurs (tableau vide si rien).
- */
-export function getUsers() {
-    return JSON.parse(localStorage.getItem('users') || '[]');
-}

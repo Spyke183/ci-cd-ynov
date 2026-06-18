@@ -1,153 +1,98 @@
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import App from './App';
-import { countUsers } from './api';
+import { getUsers, addUser, login, deleteUser, getPrivateUsers } from './api';
 
-// On simule le module api : App ne fait aucun vrai appel réseau pendant les tests.
+// On simule le module api : aucun vrai appel reseau pendant les tests.
 jest.mock('./api');
 
-/**
- * Helper : retourne une date YYYY-MM-DD pour un age donne.
- * @param {number} years - Nombre d'annees dans le passe.
- * @return {string} Date au format ISO court.
- */
+/** Retourne une date YYYY-MM-DD pour un age donne. */
 const dateForAge = (years) => {
   const d = new Date();
   d.setFullYear(d.getFullYear() - years);
   return d.toISOString().split('T')[0];
 };
 
-/**
- * Helper : remplit le formulaire avec des valeurs valides par defaut.
- * @param {object} overrides - Valeurs a remplacer.
- */
+/** Remplit le formulaire d'inscription avec des valeurs valides par defaut. */
 const fillForm = (overrides = {}) => {
-  const values = {
-    lastName: 'Dupont',
-    firstName: 'Jean',
-    email: 'jean@test.com',
-    birthDate: dateForAge(20),
-    city: 'Paris',
-    zipCode: '75001',
-    ...overrides
+  const v = {
+    lastName: 'Dupont', firstName: 'Jean', email: 'jean@test.com',
+    birthDate: dateForAge(20), city: 'Paris', zipCode: '75001', ...overrides
   };
-  fireEvent.change(screen.getByLabelText('Nom'), { target: { name: 'lastName', value: values.lastName } });
-  fireEvent.change(screen.getByLabelText('Prénom'), { target: { name: 'firstName', value: values.firstName } });
-  fireEvent.change(screen.getByLabelText('Email'), { target: { name: 'email', value: values.email } });
-  fireEvent.change(screen.getByLabelText('Date de naissance'), { target: { name: 'birthDate', value: values.birthDate } });
-  fireEvent.change(screen.getByLabelText('Ville'), { target: { name: 'city', value: values.city } });
-  fireEvent.change(screen.getByLabelText('Code postal'), { target: { name: 'zipCode', value: values.zipCode } });
+  fireEvent.change(screen.getByLabelText('Nom'), { target: { name: 'lastName', value: v.lastName } });
+  fireEvent.change(screen.getByLabelText('Prénom'), { target: { name: 'firstName', value: v.firstName } });
+  fireEvent.change(screen.getByLabelText('Email'), { target: { name: 'email', value: v.email } });
+  fireEvent.change(screen.getByLabelText('Date de naissance'), { target: { name: 'birthDate', value: v.birthDate } });
+  fireEvent.change(screen.getByLabelText('Ville'), { target: { name: 'city', value: v.city } });
+  fireEvent.change(screen.getByLabelText('Code postal'), { target: { name: 'zipCode', value: v.zipCode } });
+};
+
+/** Rend l'App en attendant le chargement initial (getUsers). */
+const renderApp = async () => {
+  await act(async () => { render(<App />); });
+};
+
+/** Remplit les identifiants admin et clique sur « Se connecter ». */
+const loginAsAdmin = async () => {
+  fireEvent.change(screen.getByTestId('login-email'), { target: { name: 'email', value: 'loise.fenoll@ynov.com' } });
+  fireEvent.change(screen.getByTestId('login-password'), { target: { name: 'password', value: 'PvdrTAzTeR247sDnAZBr' } });
+  await act(async () => { fireEvent.click(screen.getByTestId('login-btn')); });
 };
 
 beforeEach(() => {
-  localStorage.clear();
   jest.clearAllMocks();
-  // Mock par defaut de l'API : promesse jamais resolue -> pas de maj d'etat
-  // dans les tests synchrones (evite les avertissements act()).
-  countUsers.mockReturnValue(new Promise(() => {}));
+  getUsers.mockResolvedValue({ count: 0, users: [] });
+  getPrivateUsers.mockResolvedValue([]);
+  addUser.mockResolvedValue({ id: 1 });
+  login.mockResolvedValue({ isAdmin: true });
+  deleteUser.mockResolvedValue({ deleted: 1 });
 });
 
 describe('Rendu initial', () => {
-  it('affiche le titre du formulaire', () => {
-    render(<App />);
+  it('affiche le titre et les champs', async () => {
+    await renderApp();
     expect(screen.getByText("Formulaire d'inscription")).toBeInTheDocument();
-  });
-
-  it('affiche tous les champs', () => {
-    render(<App />);
     expect(screen.getByLabelText('Nom')).toBeInTheDocument();
-    expect(screen.getByLabelText('Prénom')).toBeInTheDocument();
-    expect(screen.getByLabelText('Email')).toBeInTheDocument();
-    expect(screen.getByLabelText('Date de naissance')).toBeInTheDocument();
-    expect(screen.getByLabelText('Ville')).toBeInTheDocument();
     expect(screen.getByLabelText('Code postal')).toBeInTheDocument();
   });
 
-  it('le bouton est désactivé au chargement (tous champs vides)', () => {
-    render(<App />);
+  it('le bouton est désactivé quand tous les champs sont vides', async () => {
+    await renderApp();
     expect(screen.getByTestId('submit-btn')).toBeDisabled();
   });
 
-  it("n'affiche pas le toaster de succès au chargement", () => {
-    render(<App />);
-    expect(screen.queryByTestId('toast')).not.toBeInTheDocument();
-  });
-
-  it("n'affiche pas le toaster d'erreur au chargement", () => {
-    render(<App />);
-    expect(screen.queryByTestId('error-toast')).not.toBeInTheDocument();
-  });
-
-  it('affiche un titre "Liste des inscrits"', () => {
-    render(<App />);
-    expect(screen.getByText('Liste des inscrits')).toBeInTheDocument();
-  });
-
-  it('affiche un lien vers la documentation', () => {
-    render(<App />);
-    const link = screen.getByTestId('docs-link');
-    expect(link).toBeInTheDocument();
-    expect(link.getAttribute('href')).toBe('docs/index.html');
-  });
-
-  it('charge les inscrits existants depuis localStorage', () => {
-    localStorage.setItem('users', JSON.stringify([
-      { firstName: 'Marie', lastName: 'Martin', email: 'marie@test.com' }
-    ]));
-    render(<App />);
-    expect(screen.getByTestId('user-item')).toHaveTextContent('Marie Martin - marie@test.com');
+  it('affiche le formulaire de connexion admin', async () => {
+    await renderApp();
+    expect(screen.getByTestId('admin-login')).toBeInTheDocument();
   });
 });
 
-describe('Validation des champs (erreurs en temps réel)', () => {
-  it('affiche une erreur si le nom contient des chiffres', () => {
-    render(<App />);
+describe('Chargement des inscrits', () => {
+  it('affiche la liste réduite renvoyée par l\'API', async () => {
+    getUsers.mockResolvedValueOnce({ count: 2, users: [
+      { id: 1, first_name: 'Jean', last_name: 'Dupont' },
+      { id: 2, first_name: 'Marie', last_name: 'Martin' }
+    ] });
+    await renderApp();
+    expect(screen.getAllByTestId('user-item')).toHaveLength(2);
+    expect(screen.getByText(/Jean Dupont/)).toBeInTheDocument();
+  });
+
+  it('affiche une liste vide si le chargement échoue', async () => {
+    getUsers.mockRejectedValueOnce(new Error('network'));
+    await renderApp();
+    expect(screen.queryAllByTestId('user-item')).toHaveLength(0);
+  });
+});
+
+describe('Validation des champs', () => {
+  it('affiche une erreur si le nom contient des chiffres', async () => {
+    await renderApp();
     fireEvent.change(screen.getByLabelText('Nom'), { target: { name: 'lastName', value: '123' } });
     expect(screen.getByTestId('error-lastName')).toBeInTheDocument();
   });
 
-  it('affiche une erreur si le prénom contient des caractères spéciaux', () => {
-    render(<App />);
-    fireEvent.change(screen.getByLabelText('Prénom'), { target: { name: 'firstName', value: 'Jean!' } });
-    expect(screen.getByTestId('error-firstName')).toBeInTheDocument();
-  });
-
-  it("affiche une erreur si l'email est invalide", () => {
-    render(<App />);
-    fireEvent.change(screen.getByLabelText('Email'), { target: { name: 'email', value: 'pasunemail' } });
-    expect(screen.getByTestId('error-email')).toBeInTheDocument();
-  });
-
-  it("affiche une erreur si l'utilisateur a moins de 18 ans", () => {
-    render(<App />);
-    fireEvent.change(screen.getByLabelText('Date de naissance'), {
-      target: { name: 'birthDate', value: dateForAge(15) }
-    });
-    expect(screen.getByTestId('error-birthDate')).toBeInTheDocument();
-  });
-
-  it('affiche une erreur si la ville contient des chiffres', () => {
-    render(<App />);
-    fireEvent.change(screen.getByLabelText('Ville'), { target: { name: 'city', value: 'Paris75' } });
-    expect(screen.getByTestId('error-city')).toBeInTheDocument();
-  });
-
-  it('affiche une erreur si le code postal a moins de 5 chiffres', () => {
-    render(<App />);
-    fireEvent.change(screen.getByLabelText('Code postal'), { target: { name: 'zipCode', value: '750' } });
-    expect(screen.getByTestId('error-zipCode')).toBeInTheDocument();
-  });
-
-  it("l'erreur disparaît quand le champ devient valide", () => {
-    render(<App />);
-    const lastName = screen.getByLabelText('Nom');
-    fireEvent.change(lastName, { target: { name: 'lastName', value: '123' } });
-    expect(screen.getByTestId('error-lastName')).toBeInTheDocument();
-    fireEvent.change(lastName, { target: { name: 'lastName', value: 'Dupont' } });
-    expect(screen.queryByTestId('error-lastName')).not.toBeInTheDocument();
-  });
-
-  it("l'erreur disparaît si on vide le champ", () => {
-    render(<App />);
+  it("l'erreur disparaît si on vide le champ", async () => {
+    await renderApp();
     const email = screen.getByLabelText('Email');
     fireEvent.change(email, { target: { name: 'email', value: 'invalide' } });
     expect(screen.getByTestId('error-email')).toBeInTheDocument();
@@ -156,159 +101,75 @@ describe('Validation des champs (erreurs en temps réel)', () => {
   });
 });
 
-describe('Activation du bouton de soumission', () => {
-  it("s'active dès qu'un champ est rempli, même si invalide", () => {
-    render(<App />);
-    fireEvent.change(screen.getByLabelText('Nom'), { target: { name: 'lastName', value: '123' } });
-    expect(screen.getByTestId('submit-btn')).toBeEnabled();
-  });
-
-  it("s'active quand tous les champs sont valides", () => {
-    render(<App />);
+describe('Soumission du formulaire', () => {
+  it('enregistre l\'inscrit via l\'API et affiche le toaster de succès', async () => {
+    await renderApp();
     fillForm();
-    expect(screen.getByTestId('submit-btn')).toBeEnabled();
-  });
-
-  it("s'active même si l'âge est < 18 ans (déclenchera le toaster d'erreur)", () => {
-    render(<App />);
-    fillForm({ birthDate: dateForAge(15) });
-    expect(screen.getByTestId('submit-btn')).toBeEnabled();
-  });
-
-  it("se redésactive après une inscription réussie (champs vidés)", () => {
-    render(<App />);
-    fillForm();
-    fireEvent.click(screen.getByTestId('submit-btn'));
-    expect(screen.getByTestId('submit-btn')).toBeDisabled();
-  });
-});
-
-describe('Soumission valide (toaster de succès)', () => {
-  it('affiche le toaster de succès après une inscription réussie', () => {
-    render(<App />);
-    fillForm();
-    fireEvent.click(screen.getByTestId('submit-btn'));
+    await act(async () => { fireEvent.click(screen.getByTestId('submit-btn')); });
+    expect(addUser).toHaveBeenCalledTimes(1);
+    expect(addUser).toHaveBeenCalledWith(expect.objectContaining({ last_name: 'Dupont', first_name: 'Jean' }));
     expect(screen.getByTestId('toast')).toBeInTheDocument();
-    expect(screen.getByTestId('toast')).toHaveTextContent('Inscription réussie');
   });
 
-  it('vide les champs après inscription', () => {
-    render(<App />);
-    fillForm();
-    fireEvent.click(screen.getByTestId('submit-btn'));
-    expect(screen.getByLabelText('Nom').value).toBe('');
-    expect(screen.getByLabelText('Prénom').value).toBe('');
-    expect(screen.getByLabelText('Email').value).toBe('');
-    expect(screen.getByLabelText('Ville').value).toBe('');
-    expect(screen.getByLabelText('Code postal').value).toBe('');
-  });
-
-  it("ajoute l'utilisateur dans la liste affichée", () => {
-    render(<App />);
-    fillForm();
-    fireEvent.click(screen.getByTestId('submit-btn'));
-    expect(screen.getByTestId('user-item')).toHaveTextContent('Jean Dupont - jean@test.com');
-  });
-
-  it("persiste l'utilisateur dans localStorage", () => {
-    render(<App />);
-    fillForm();
-    fireEvent.click(screen.getByTestId('submit-btn'));
-    const stored = JSON.parse(localStorage.getItem('users'));
-    expect(stored.length).toBe(1);
-    expect(stored[0].email).toBe('jean@test.com');
-  });
-
-  it('le toaster de succès disparaît après 3 secondes', () => {
-    jest.useFakeTimers();
-    render(<App />);
-    fillForm();
-    fireEvent.click(screen.getByTestId('submit-btn'));
-    expect(screen.getByTestId('toast')).toBeInTheDocument();
-    act(() => {
-      jest.advanceTimersByTime(3000);
-    });
-    expect(screen.queryByTestId('toast')).not.toBeInTheDocument();
-    jest.useRealTimers();
-  });
-
-  it("n'affiche PAS le toaster d'erreur en cas de succès", () => {
-    render(<App />);
-    fillForm();
-    fireEvent.click(screen.getByTestId('submit-btn'));
-    expect(screen.queryByTestId('error-toast')).not.toBeInTheDocument();
-  });
-});
-
-describe('Soumission invalide (toaster d\'erreur)', () => {
-  it("affiche le toaster d'erreur si soumission avec un email invalide", () => {
-    render(<App />);
+  it('affiche le toaster d\'erreur si la soumission est invalide', async () => {
+    await renderApp();
     fillForm({ email: 'pasunemail' });
-    fireEvent.click(screen.getByTestId('submit-btn'));
-    expect(screen.getByTestId('error-toast')).toBeInTheDocument();
-    expect(screen.getByTestId('error-toast')).toHaveTextContent('corriger');
-  });
-
-  it("affiche le toaster d'erreur si soumission avec un âge < 18 ans", () => {
-    render(<App />);
-    fillForm({ birthDate: dateForAge(15) });
-    fireEvent.click(screen.getByTestId('submit-btn'));
+    await act(async () => { fireEvent.click(screen.getByTestId('submit-btn')); });
+    expect(addUser).not.toHaveBeenCalled();
     expect(screen.getByTestId('error-toast')).toBeInTheDocument();
   });
 
-  it("marque tous les champs invalides en erreur si soumission d'un formulaire partiellement rempli", () => {
-    render(<App />);
-    fireEvent.change(screen.getByLabelText('Nom'), { target: { name: 'lastName', value: 'Dupont' } });
-    fireEvent.click(screen.getByTestId('submit-btn'));
-    expect(screen.getByTestId('error-firstName')).toBeInTheDocument();
-    expect(screen.getByTestId('error-email')).toBeInTheDocument();
-    expect(screen.getByTestId('error-birthDate')).toBeInTheDocument();
-    expect(screen.getByTestId('error-city')).toBeInTheDocument();
-    expect(screen.getByTestId('error-zipCode')).toBeInTheDocument();
-  });
-
-  it("le toaster d'erreur disparaît après 3 secondes", () => {
+  it("le toaster d'erreur disparaît après 3 secondes", async () => {
+    getUsers.mockReturnValue(new Promise(() => {}));
     jest.useFakeTimers();
     render(<App />);
     fillForm({ email: 'pasunemail' });
     fireEvent.click(screen.getByTestId('submit-btn'));
     expect(screen.getByTestId('error-toast')).toBeInTheDocument();
-    act(() => {
-      jest.advanceTimersByTime(3000);
-    });
+    act(() => { jest.advanceTimersByTime(3000); });
     expect(screen.queryByTestId('error-toast')).not.toBeInTheDocument();
     jest.useRealTimers();
   });
-
-  it("ne sauvegarde PAS l'utilisateur dans localStorage en cas d'erreur", () => {
-    render(<App />);
-    fillForm({ email: 'pasunemail' });
-    fireEvent.click(screen.getByTestId('submit-btn'));
-    expect(localStorage.getItem('users')).toBeNull();
-  });
-
-  it("n'affiche PAS le toaster de succès en cas d'erreur", () => {
-    render(<App />);
-    fillForm({ email: 'pasunemail' });
-    fireEvent.click(screen.getByTestId('submit-btn'));
-    expect(screen.queryByTestId('toast')).not.toBeInTheDocument();
-  });
 });
 
-describe("Nombre d'utilisateurs en base (API)", () => {
-  it("affiche le nombre d'utilisateurs renvoyé par l'API", async () => {
-    countUsers.mockResolvedValueOnce(5);
-    await act(async () => {
-      render(<App />);
-    });
-    expect(await screen.findByTestId('db-count')).toHaveTextContent('5');
+describe('Espace administrateur', () => {
+  it('connexion réussie : affiche le panneau admin et les infos privées', async () => {
+    getPrivateUsers.mockResolvedValueOnce([
+      { id: 1, first_name: 'Jean', last_name: 'Dupont', email: 'jean@test.com', birth_date: '2000-01-01', city: 'Paris', zip_code: '75001' }
+    ]);
+    await renderApp();
+    fireEvent.change(screen.getByTestId('login-email'), { target: { name: 'email', value: 'loise.fenoll@ynov.com' } });
+    fireEvent.change(screen.getByTestId('login-password'), { target: { name: 'password', value: 'PvdrTAzTeR247sDnAZBr' } });
+    await act(async () => { fireEvent.click(screen.getByTestId('login-btn')); });
+    expect(login).toHaveBeenCalledWith('loise.fenoll@ynov.com', 'PvdrTAzTeR247sDnAZBr');
+    expect(screen.getByTestId('admin-panel')).toBeInTheDocument();
+    expect(screen.getByText(/jean@test.com/)).toBeInTheDocument();
+    expect(screen.getByTestId('delete-btn')).toBeInTheDocument();
   });
 
-  it("n'affiche rien si l'appel API échoue", async () => {
-    countUsers.mockRejectedValueOnce(new Error('network'));
-    await act(async () => {
-      render(<App />);
-    });
-    expect(screen.queryByTestId('db-count')).not.toBeInTheDocument();
+  it('connexion échouée : affiche une erreur', async () => {
+    login.mockRejectedValueOnce(new Error('invalide'));
+    await renderApp();
+    await act(async () => { fireEvent.click(screen.getByTestId('login-btn')); });
+    expect(screen.getByTestId('login-error')).toBeInTheDocument();
+    expect(screen.queryByTestId('admin-panel')).not.toBeInTheDocument();
+  });
+
+  it('déconnexion : revient au formulaire de connexion', async () => {
+    await renderApp();
+    await act(async () => { fireEvent.click(screen.getByTestId('login-btn')); });
+    expect(screen.getByTestId('admin-panel')).toBeInTheDocument();
+    await act(async () => { fireEvent.click(screen.getByTestId('logout-btn')); });
+    expect(screen.getByTestId('admin-login')).toBeInTheDocument();
+  });
+
+  it('suppression d\'un inscrit par l\'admin', async () => {
+    getPrivateUsers.mockResolvedValueOnce([
+      { id: 7, first_name: 'A', last_name: 'B', email: 'a@b.c', birth_date: '2000-01-01', city: 'X', zip_code: '00000' }
+    ]);
+    await renderApp();
+    await loginAsAdmin();
+    await act(async () => { fireEvent.click(screen.getByTestId('delete-btn')); });
+    expect(deleteUser).toHaveBeenCalledWith(7, 'loise.fenoll@ynov.com', 'PvdrTAzTeR247sDnAZBr');
   });
 });

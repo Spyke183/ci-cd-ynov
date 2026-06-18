@@ -4,9 +4,7 @@ import {
     isValidBirthDate,
     isValidZipCode,
     isValidCity,
-    validateField,
-    saveUser,
-    getUsers
+    validateField
 } from './validators';
 
 describe('isValidName', () => {
@@ -122,33 +120,4 @@ describe('validateField', () => {
     it('invalide zipCode', () => expect(validateField('zipCode', 'abc')).toBe(false));
     it('valide city', () => expect(validateField('city', 'Lyon')).toBe(true));
     it('retourne false pour un champ inconnu', () => expect(validateField('unknown', 'value')).toBe(false));
-});
-
-describe('saveUser & getUsers', () => {
-    beforeEach(() => localStorage.clear());
-
-    it('sauvegarde un utilisateur dans localStorage', () => {
-        const user = { firstName: 'Jean', lastName: 'Dupont', email: 'jean@test.com' };
-        const result = saveUser(user);
-        expect(result.length).toBe(1);
-        expect(result[0].email).toBe('jean@test.com');
-    });
-
-    it('retourne la liste complète après ajout', () => {
-        saveUser({ firstName: 'Jean', lastName: 'Dupont', email: 'jean@test.com' });
-        const result = saveUser({ firstName: 'Marie', lastName: 'Martin', email: 'marie@test.com' });
-        expect(result.length).toBe(2);
-    });
-
-    it('getUsers retourne un tableau vide si localStorage est vide', () => {
-        expect(getUsers()).toEqual([]);
-    });
-
-    it('getUsers retourne la liste persistée', () => {
-        saveUser({ firstName: 'Jean', lastName: 'Dupont', email: 'jean@test.com' });
-        saveUser({ firstName: 'Marie', lastName: 'Martin', email: 'marie@test.com' });
-        const users = getUsers();
-        expect(users.length).toBe(2);
-        expect(users[1].firstName).toBe('Marie');
-    });
 });
