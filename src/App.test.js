@@ -1,5 +1,9 @@
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import App from './App';
+import { countUsers } from './api';
+
+// On simule le module api : App ne fait aucun vrai appel réseau pendant les tests.
+jest.mock('./api');
 
 /**
  * Helper : retourne une date YYYY-MM-DD pour un age donne.
@@ -36,9 +40,10 @@ const fillForm = (overrides = {}) => {
 
 beforeEach(() => {
   localStorage.clear();
-  // Mock fetch par defaut : promesse jamais resolue -> pas de maj d'etat
+  jest.clearAllMocks();
+  // Mock par defaut de l'API : promesse jamais resolue -> pas de maj d'etat
   // dans les tests synchrones (evite les avertissements act()).
-  global.fetch = jest.fn(() => new Promise(() => {}));
+  countUsers.mockReturnValue(new Promise(() => {}));
 });
 
 describe('Rendu initial', () => {
@@ -292,9 +297,7 @@ describe('Soumission invalide (toaster d\'erreur)', () => {
 
 describe("Nombre d'utilisateurs en base (API)", () => {
   it("affiche le nombre d'utilisateurs renvoyé par l'API", async () => {
-    global.fetch = jest.fn(() =>
-      Promise.resolve({ json: () => Promise.resolve({ count: 5 }) })
-    );
+    countUsers.mockResolvedValueOnce(5);
     await act(async () => {
       render(<App />);
     });
@@ -302,7 +305,7 @@ describe("Nombre d'utilisateurs en base (API)", () => {
   });
 
   it("n'affiche rien si l'appel API échoue", async () => {
-    global.fetch = jest.fn(() => Promise.reject(new Error('network')));
+    countUsers.mockRejectedValueOnce(new Error('network'));
     await act(async () => {
       render(<App />);
     });

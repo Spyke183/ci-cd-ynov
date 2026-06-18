@@ -10,6 +10,7 @@ import {
   saveUser,
   getUsers
 } from './validators';
+import { countUsers } from './api';
 
 /**
  * Composant principal : formulaire d'inscription avec validation,
@@ -31,11 +32,10 @@ function App() {
   const [users, setUsers] = useState(getUsers());
   const [dbCount, setDbCount] = useState(null);
 
-  // Recupere le nombre d'utilisateurs en base via l'API (Docker / FastAPI).
+  // Recupere le nombre d'utilisateurs en base via l'API (src/api.js).
   useEffect(() => {
-    fetch('http://localhost:8000/users')
-      .then((res) => res.json())
-      .then((data) => setDbCount(data.count))
+    countUsers()
+      .then((count) => setDbCount(count))
       .catch(() => {});
   }, []);
 
