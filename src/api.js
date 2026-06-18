@@ -1,5 +1,5 @@
 // URL du serveur d'API, construite a partir de la variable d'environnement.
-const API_URL = `http://localhost:${process.env.REACT_APP_SERVER_PORT || '8000'}`;
+const API_URL = process.env.REACT_APP_API_URL || `http://localhost:${process.env.REACT_APP_SERVER_PORT || '8000'}`;
 
 /**
  * Recupere la liste publique des inscrits (informations reduites) et le total.
